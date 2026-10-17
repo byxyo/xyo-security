@@ -47,7 +47,7 @@ class Cleanup
     public static function removeCssJsVersion($src)
     {
         if (strpos($src, 'ver=')) {
-            $queryParameters = parse_url($src, PHP_URL_QUERY);
+            $queryParameters = wp_parse_url($src, PHP_URL_QUERY);
             $parameters = \explode('&', $queryParameters);
             $params = [];
 

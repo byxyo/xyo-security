@@ -1,13 +1,16 @@
 <?php
 /*
-Plugin Name: Security by Xyo
-Plugin URI: https://xyo.dev/
+Plugin Name: Xyo Security
+Plugin URI: https://xyo.dev/security
 Description: Secure and clean your WordPress: trim head cruft, harden headers, lock the REST API (with a public-route whitelist) and tame Yoast.
 Version: 3.0.0
 Author: Patrick Petit (Xyo)
 Author URI: https://xyo.dev/
 License: GPLv2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Text Domain: xyo-security
+Requires at least: 5.0
+Requires PHP: 7.4
 */
 
 use Xyo\WordpressSecurity\Actions\Cleanup;
