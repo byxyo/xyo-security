@@ -1,0 +1,4 @@
+# Code owners — xyo-security
+# Dernier motif correspondant l'emporte. La team doit avoir un accès write
+# et la branch protection « Require review from Code Owners » doit être active.
+*       @byxyo/maintainers
