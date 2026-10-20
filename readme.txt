@@ -1,5 +1,5 @@
 === Xyo Security ===
-Contributors: mrxyo
+Contributors: xyo
 Tags: security, hardening, rest api, headers, file integrity
 Requires at least: 5.0
 Tested up to: 7.1

@@ -6,18 +6,20 @@ use RecursiveCallbackFilterIterator;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use Xyo\WordpressSecurity\Admin\Settings;
+use Xyo\WordpressSecurity\Support\Paths;
+use Xyo\WordpressSecurity\Support\Report;
 
 /**
  * File integrity monitoring (FIM). Once a day a WP-Cron job walks the whole
  * install — WordPress core, plugins, mu-plugins and the active theme — hashing
  * every executable file (PHP/JS/.htaccess) with SHA-256. The result is compared
  * against the baseline stored from the previous run; any added, modified or
- * removed file is reported three ways: an admin e-mail, a timestamped log file
- * and a dismissible wp-admin notice.
+ * removed file is reported through the shared Report channel: an admin e-mail, a
+ * timestamped log file and a dismissible wp-admin notice.
  *
  * Portability: the scan roots come from WordPress constants/APIs (ABSPATH,
- * WP_CONTENT_DIR, WPMU_PLUGIN_DIR, get_theme_root), never hard-coded paths, so
- * it behaves identically on a classic single-folder install and on Bedrock
+ * WP_CONTENT_DIR, WPMU_PLUGIN_DIR, get_theme_root) via Paths, never hard-coded,
+ * so it behaves identically on a classic single-folder install and on Bedrock
  * (where core lives in web/wp and content in web/app). Nested roots are
  * de-duplicated, and the uploads directory plus our own data directory are
  * excluded from the hash baseline — uploads churns constantly with media.
@@ -32,17 +34,8 @@ class Integrity
     /** Daily WP-Cron hook. */
     const CRON_HOOK = 'xyo_security_integrity_scan';
 
-    /** Option holding the pending alert shown in wp-admin (null when clear). */
-    const ALERT_OPTION = 'xyo_security_integrity_alert';
-
     /** Option holding a signature of the last executable-in-uploads finding. */
     const UPLOADS_OPTION = 'xyo_security_integrity_uploads';
-
-    /** Sub-directory of uploads/ holding the baseline manifest and the log. */
-    const DATA_DIR = 'xyo-security';
-
-    /** Query arg used to dismiss the admin notice. */
-    const DISMISS_ARG = 'xyo_sec_fim_dismiss';
 
     /** admin-post action backing the "Scan file integrity" button. */
     const SCAN_ACTION = 'xyo_security_scan_now';
@@ -75,8 +68,8 @@ class Integrity
         }
 
         if (is_admin()) {
-            add_action('admin_notices', [self::class, 'renderNotice']);
-            add_action('admin_init', [self::class, 'handleDismiss']);
+            add_action('admin_notices', [Report::class, 'renderNotice']);
+            add_action('admin_init', [Report::class, 'handleDismiss']);
             add_action('admin_post_' . self::SCAN_ACTION, [self::class, 'handleScanNow']);
             add_action('admin_post_' . self::SCAN_UPLOADS_ACTION, [self::class, 'handleScanUploads']);
             add_action('xyo_security_after_settings_form', [self::class, 'renderScanButton']);
@@ -210,7 +203,7 @@ class Integrity
 
         $current = self::buildManifest();
         if ($current === null) {
-            self::log('Scan aborted: nothing scannable or data directory unwritable.');
+            Report::log('Scan aborted: nothing scannable or data directory unwritable.');
 
             return ['status' => 'empty', 'diff' => $empty, 'total' => 0];
         }
@@ -219,7 +212,7 @@ class Integrity
         self::saveBaseline($current);
 
         if ($baseline === null) {
-            self::log('Baseline created: ' . count($current) . ' files hashed.');
+            Report::log('Baseline created: ' . count($current) . ' files hashed.');
 
             return ['status' => 'baseline', 'diff' => $empty, 'total' => count($current)];
         }
@@ -269,7 +262,7 @@ class Integrity
         if ($base === false) {
             return [];
         }
-        $data = realpath(self::dataDir());
+        $data = realpath(Paths::dataDir());
 
         $directory = new RecursiveDirectoryIterator($base, \FilesystemIterator::SKIP_DOTS);
         $filter = new RecursiveCallbackFilterIterator($directory, static function ($current) use ($data) {
@@ -339,12 +332,12 @@ class Integrity
      */
     private static function buildManifest(): ?array
     {
-        $roots = self::scanRoots();
+        $roots = Paths::scanRoots();
         if ($roots === []) {
             return null;
         }
 
-        $excluded = self::excludedDirs();
+        $excluded = Paths::excludedDirs();
         $manifest = [];
 
         foreach ($roots as $root) {
@@ -401,75 +394,6 @@ class Integrity
     }
 
     /**
-     * Root directories to walk, from WordPress itself, with any root nested
-     * inside another removed so each file is hashed exactly once. On a classic
-     * install this collapses to a single ABSPATH; on Bedrock it yields the
-     * separate core (web/wp) and content (web/app) trees.
-     *
-     * @return string[] absolute, real paths
-     */
-    private static function scanRoots(): array
-    {
-        $candidates = array_filter([
-            defined('ABSPATH') ? ABSPATH : null,
-            defined('WP_CONTENT_DIR') ? WP_CONTENT_DIR : null,
-            defined('WPMU_PLUGIN_DIR') ? WPMU_PLUGIN_DIR : null,
-            function_exists('get_theme_root') ? get_theme_root() : null,
-        ]);
-
-        $real = [];
-        foreach ($candidates as $candidate) {
-            $resolved = realpath($candidate);
-            if ($resolved !== false) {
-                $real[$resolved] = true;
-            }
-        }
-        $real = array_keys($real);
-
-        $roots = [];
-        foreach ($real as $path) {
-            $nested = false;
-            foreach ($real as $other) {
-                if ($path !== $other && strpos($path, $other . DIRECTORY_SEPARATOR) === 0) {
-                    $nested = true;
-                    break;
-                }
-            }
-            if (!$nested) {
-                $roots[] = $path;
-            }
-        }
-
-        return $roots;
-    }
-
-    /**
-     * Directories pruned from the walk: the uploads tree (constant churn, no
-     * executable code expected) and our own data directory.
-     *
-     * @return string[] absolute, real paths
-     */
-    private static function excludedDirs(): array
-    {
-        $dirs = [];
-
-        $uploads = wp_upload_dir();
-        if (empty($uploads['error']) && !empty($uploads['basedir'])) {
-            $real = realpath($uploads['basedir']);
-            if ($real !== false) {
-                $dirs[] = $real;
-            }
-        }
-
-        $data = realpath(self::dataDir());
-        if ($data !== false) {
-            $dirs[] = $data;
-        }
-
-        return $dirs;
-    }
-
-    /**
      * Compare two manifests.
      *
      * @param array<string,string> $old
@@ -496,8 +420,8 @@ class Integrity
     }
 
     /**
-     * Fan the detected change out to the three channels: log file, e-mail and a
-     * pending admin notice.
+     * Fan the detected change out through the shared Report channel: log file,
+     * e-mail and a pending admin notice.
      *
      * @param array{added:string[],modified:string[],removed:string[]} $diff
      * @param string[] $threats executable files found in uploads
@@ -530,22 +454,20 @@ class Integrity
         // Log: every path, no truncation.
         $lines = [$summary];
         foreach ($threats as $path) {
-            $lines[] = '! ' . self::relative($path);
+            $lines[] = '! ' . Paths::relative($path);
         }
         foreach (['added' => '+', 'modified' => '~', 'removed' => '-'] as $kind => $marker) {
             foreach ($diff[$kind] as $path) {
-                $lines[] = $marker . ' ' . self::relative($path);
+                $lines[] = $marker . ' ' . Paths::relative($path);
             }
         }
-        self::log(implode("\n", $lines));
+        Report::log(implode("\n", $lines));
 
         // Pending admin notice (persists until dismissed).
-        update_option(self::ALERT_OPTION, [
-            'time'     => time(),
-            'counts'   => $counts,
-            'threats'  => count($threats),
-            'summary'  => $summary,
-        ], false);
+        $title = $threats !== []
+            ? __('Security by Xyo — executable file found in uploads', 'xyo-security')
+            : __('Security by Xyo — file change detected', 'xyo-security');
+        Report::alert($title, $summary);
 
         // E-mail to the site admin, path list capped.
         self::sendEmail($diff, $threats, $summary);
@@ -559,11 +481,6 @@ class Integrity
      */
     private static function sendEmail(array $diff, array $threats, string $summary): void
     {
-        $to = get_option('admin_email');
-        if (!is_email($to)) {
-            return;
-        }
-
         $site = wp_specialchars_decode(get_bloginfo('name'), ENT_QUOTES);
         $subject = $threats !== []
             ? sprintf('[%s] SECURITY: executable file in uploads', $site)
@@ -575,7 +492,7 @@ class Integrity
         if ($threats !== []) {
             $body[] = 'Executable files in uploads (investigate — these are not normally present):';
             foreach ($threats as $path) {
-                $body[] = '  ' . self::relative($path);
+                $body[] = '  ' . Paths::relative($path);
             }
             $body[] = '';
         }
@@ -587,68 +504,16 @@ class Integrity
             $body[] = $heading . ':';
             foreach ($diff[$kind] as $path) {
                 if ($shown >= self::REPORT_LIMIT) {
-                    $body[] = sprintf('  … and more (see %s).', self::logPath());
+                    $body[] = sprintf('  … and more (see %s).', Report::logPath());
                     break 2;
                 }
-                $body[] = '  ' . self::relative($path);
+                $body[] = '  ' . Paths::relative($path);
                 $shown++;
             }
             $body[] = '';
         }
 
-        wp_mail($to, $subject, implode("\n", $body));
-    }
-
-    /**
-     * Render the pending-alert banner in wp-admin, with a dismiss link.
-     */
-    public static function renderNotice(): void
-    {
-        if (!current_user_can('manage_options')) {
-            return;
-        }
-
-        $alert = get_option(self::ALERT_OPTION);
-        if (!is_array($alert) || empty($alert['summary'])) {
-            return;
-        }
-
-        $dismiss = wp_nonce_url(
-            add_query_arg(self::DISMISS_ARG, '1'),
-            self::DISMISS_ARG
-        );
-
-        $title = !empty($alert['threats'])
-            ? __('Security by Xyo — executable file found in uploads', 'xyo-security')
-            : __('Security by Xyo — file change detected', 'xyo-security');
-
-        printf(
-            '<div class="notice notice-error"><p><strong>%s</strong> %s</p><p>%s %s</p></div>',
-            esc_html($title),
-            esc_html($alert['summary']),
-            sprintf(
-                /* translators: %s: path to the integrity log file */
-                esc_html__('Full report logged to %s.', 'xyo-security'),
-                '<code>' . esc_html(self::logPath()) . '</code>'
-            ),
-            '<a href="' . esc_url($dismiss) . '">' . esc_html__('Dismiss', 'xyo-security') . '</a>'
-        );
-    }
-
-    /**
-     * Clear the pending alert when the admin clicks "Dismiss".
-     */
-    public static function handleDismiss(): void
-    {
-        if (!isset($_GET[self::DISMISS_ARG]) || !current_user_can('manage_options')) {
-            return;
-        }
-        check_admin_referer(self::DISMISS_ARG);
-
-        delete_option(self::ALERT_OPTION);
-
-        wp_safe_redirect(remove_query_arg([self::DISMISS_ARG, '_wpnonce']));
-        exit;
+        Report::email($subject, implode("\n", $body));
     }
 
     /**
@@ -785,55 +650,9 @@ class Integrity
         }
     }
 
-    /** Append a timestamped entry to the log file. */
-    private static function log(string $message): void
-    {
-        $line = '[' . gmdate('Y-m-d H:i:s') . " UTC]\n" . $message . "\n\n";
-        @file_put_contents(self::logPath(), $line, FILE_APPEND | LOCK_EX);
-    }
-
     /** Absolute path to the baseline manifest. */
     private static function manifestPath(): string
     {
-        return self::dataDir() . '/manifest.json';
-    }
-
-    /** Absolute path to the log file. */
-    private static function logPath(): string
-    {
-        return self::dataDir() . '/integrity.log';
-    }
-
-    /**
-     * Ensure the data directory exists under uploads and is not web-readable
-     * (Apache .htaccess + IIS web.config + a silent index.php), then return it.
-     */
-    private static function dataDir(): string
-    {
-        $uploads = wp_upload_dir();
-        $base = !empty($uploads['basedir']) ? $uploads['basedir'] : WP_CONTENT_DIR . '/uploads';
-        $dir = $base . '/' . self::DATA_DIR;
-
-        if (!is_dir($dir)) {
-            wp_mkdir_p($dir);
-
-            @file_put_contents($dir . '/.htaccess', "Require all denied\n<IfModule !mod_authz_core.c>\nDeny from all\n</IfModule>\n");
-            @file_put_contents($dir . '/web.config', "<configuration><system.webServer><authorization><deny users=\"*\" /></authorization></system.webServer></configuration>\n");
-            @file_put_contents($dir . '/index.php', "<?php\n// Silence is golden.\n");
-        }
-
-        return $dir;
-    }
-
-    /** Shorten an absolute path for display, relative to the install root. */
-    private static function relative(string $path): string
-    {
-        foreach (self::scanRoots() as $root) {
-            if (strpos($path, $root . DIRECTORY_SEPARATOR) === 0) {
-                return ltrim(substr($path, strlen($root)), DIRECTORY_SEPARATOR);
-            }
-        }
-
-        return $path;
+        return Paths::dataDir() . '/manifest.json';
     }
 }
