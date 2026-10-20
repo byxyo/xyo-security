@@ -3,7 +3,7 @@
 namespace Xyo\WordpressSecurity\Admin;
 
 /**
- * Settings screen (Settings → Security by Xyo) that turns each hardening feature
+ * Settings screen (Settings → Xyo Security) that turns each hardening feature
  * on/off. State lives in a single array option, read through isEnabled() which
  * the bootstrap uses to decide whether to wire each Action. Built on the native
  * WordPress Settings API (nonce + sanitisation handled by core).
@@ -170,8 +170,8 @@ class Settings
     public static function registerMenu(): void
     {
         add_options_page(
-            __('Security by Xyo', 'xyo-security'),
-            __('Security by Xyo', 'xyo-security'),
+            __('Xyo Security', 'xyo-security'),
+            __('Xyo Security', 'xyo-security'),
             'manage_options',
             self::PAGE,
             [self::class, 'renderPage']
@@ -276,7 +276,7 @@ class Settings
         }
         ?>
         <div class="wrap">
-            <h1><?php echo esc_html__('Security by Xyo', 'xyo-security'); ?></h1>
+            <h1><?php echo esc_html__('Xyo Security', 'xyo-security'); ?></h1>
             <form action="options.php" method="post">
                 <?php
                 settings_fields(self::GROUP);
@@ -286,7 +286,7 @@ class Settings
             </form>
             <?php
             /**
-             * Fires after the settings form on the Security by Xyo page. Features
+             * Fires after the settings form on the Xyo Security page. Features
              * (e.g. file integrity monitoring) hook here to add their own tools,
              * keeping this screen agnostic of individual features.
              */

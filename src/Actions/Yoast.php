@@ -17,18 +17,8 @@ class Yoast
             return $robots;
         }, (PHP_INT_MAX - 9));
 
+        // Removes Yoast's HTML comment markers without output buffering.
         add_filter('wpseo_debug_markers', '__return_false');
-        add_action(
-            'wp_head',
-            function () {
-                ob_start(
-                    function ($o) {
-                        return preg_replace('/\n?<.*?Yoast SEO plugin.*?>/mi', '', $o);
-                    }
-                );
-            },
-            (PHP_INT_MAX - 9)
-        );
 
         add_filter('wpseo_sitemap_exclude_author', [self::class, 'removeAuthorFromYoast'], 10, 1);
     }

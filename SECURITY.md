@@ -1,4 +1,4 @@
-# Security Policy — Security by Xyo
+# Security Policy — Xyo Security
 
 ## Supported versions
 
@@ -37,7 +37,7 @@ exposure in `wp-content/uploads/xyo-security/` — are especially welcome.
 
 ---
 
-# Politique de sécurité — Security by Xyo
+# Politique de sécurité — Xyo Security
 
 ## Signaler une vulnérabilité
 

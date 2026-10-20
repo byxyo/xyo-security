@@ -1,5 +1,5 @@
 === Xyo Security ===
-Contributors: mrxyo
+Contributors: xyo
 Tags: security, hardening, rest api, headers, file integrity
 Requires at least: 5.0
 Tested up to: 7.1
@@ -12,8 +12,8 @@ Clean and harden WordPress: trim <head> cruft, send hardened headers, lock the R
 
 == Description ==
 
-Security by Xyo bundles a set of independent hardening features behind a single
-settings screen (Settings > Security by Xyo). Each one is a simple on/off toggle,
+Xyo Security bundles a set of independent hardening features behind a single
+settings screen (Settings > Xyo Security). Each one is a simple on/off toggle,
 so you only run what you need.
 
 Features:
@@ -49,7 +49,7 @@ The plugin does not collect or transmit any visitor data.
 == Installation ==
 
 1. Upload the plugin folder to `wp-content/plugins/` and activate it.
-2. Go to Settings > Security by Xyo and toggle the features you want.
+2. Go to Settings > Xyo Security and toggle the features you want.
 3. For file integrity monitoring, click "Scan now" to record the initial
    baseline, or wait for the first daily run.
 
@@ -78,5 +78,5 @@ button. The settings screen warns you when this is the case.
 == Upgrade Notice ==
 
 = 3.0.0 =
-All features default to on. Review Settings > Security by Xyo after upgrading —
+All features default to on. Review Settings > Xyo Security after upgrading —
 locking the REST API may affect anonymous API access.

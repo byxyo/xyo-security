@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: Xyo Security
-Plugin URI: https://xyo.dev/security
+Plugin URI: https://xyo.dev/plugins/securityq
 Description: Secure and clean your WordPress: trim head cruft, harden headers, lock the REST API (with a public-route whitelist) and tame Yoast.
 Version: 3.0.0
 Author: Patrick Petit (Xyo)
@@ -52,7 +52,7 @@ if (!function_exists('add_action')) {
     exit;
 }
 
-// Admin settings screen (Settings → Security by Xyo) + "Settings" plugin link.
+// Admin settings screen (Settings → Xyo Security) + "Settings" plugin link.
 add_action('admin_menu', [Settings::class, 'registerMenu']);
 add_action('admin_init', [Settings::class, 'registerSettings']);
 add_filter('plugin_action_links_' . plugin_basename(__FILE__), [Settings::class, 'actionLinks']);

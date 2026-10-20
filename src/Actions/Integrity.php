@@ -619,8 +619,8 @@ class Integrity
         );
 
         $title = !empty($alert['threats'])
-            ? __('Security by Xyo — executable file found in uploads', 'xyo-security')
-            : __('Security by Xyo — file change detected', 'xyo-security');
+            ? __('Xyo Security — executable file found in uploads', 'xyo-security')
+            : __('Xyo Security — file change detected', 'xyo-security');
 
         printf(
             '<div class="notice notice-error"><p><strong>%s</strong> %s</p><p>%s %s</p></div>',

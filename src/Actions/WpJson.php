@@ -10,7 +10,7 @@ class WpJson
     /**
      * Route prefixes always kept public, regardless of admin settings — oEmbed
      * must stay reachable for WordPress embeds to work. The rest of the public
-     * whitelist is admin-configurable (Settings → Security by Xyo) and merged on
+     * whitelist is admin-configurable (Settings → Xyo Security) and merged on
      * top; extend programmatically via the 'xyo_security_public_rest_prefixes'
      * filter.
      */
@@ -35,7 +35,7 @@ class WpJson
         }
 
         $message = apply_filters(
-            'disable_wp_rest_api_error',
+            'xyo_security_rest_api_error',
             __('REST API restricted to authenticated users.', 'xyo-security')
         );
 
